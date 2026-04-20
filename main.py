@@ -5,17 +5,6 @@ from fastapi import FastAPI, Path, Query
 app = FastAPI()
 
 
-@app.get("/users")
-async def retrieve_user_profile(
-    username: Annotated[
-        str, Query(min_length=2, max_length=50, description="Имя пользователя")
-    ],
-) -> dict:
-    return profiles_dict.get(
-        username, {"message": f"Пользователь {username} не найден."}
-    )
-
-
 @app.get("/category/{category_id}/products")
 async def category(
     category_id: Annotated[int, Path(gt=0, description="Category ID")],
