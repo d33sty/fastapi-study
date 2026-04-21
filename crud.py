@@ -1,46 +1,76 @@
-from fastapi import FastAPI, Body, status, HTTPException
+from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel
+
 
 app = FastAPI()
-comments_db = {0: "First comment in FastAPI"}
 
 
-# Напишите здесь ваше решение.
-@app.get("/comments", status_code=status.HTTP_200_OK)
-async def get_comments() -> dict:
-    return comments_db
+# Модель для входных данных (запросов: создание и обновление)
+class MessageCreate(BaseModel):
+    content: str
 
 
-@app.get("/comments/{comment_id}", status_code=status.HTTP_200_OK)
-async def get_comment(comment_id: int) -> str:
-    if comment_id not in comments_db:
+# Модель для ответов и хранения в базе данных
+class Message(BaseModel):
+    id: int
+    content: str
+
+
+# Инициализируем messages_db как список объектов Message
+messages_db: list[Message] = [Message(id=0, content="First post in FastAPI")]
+
+
+# GET /messages: Возвращает весь список сообщений
+@app.get("/messages", response_model=list[Message])
+async def read_messages() -> list[Message]:
+    return messages_db
+
+
+# GET /messages/{message_id}: Получение одного сообщения по ID
+@app.get("/messages/{message_id}", response_model=Message)
+async def read_message(message_id: int) -> Message:
+    for message in messages_db:
+        if message.id == message_id:
+            return message
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
+    )
+
+
+# POST /messages: Создание нового сообщения
+@app.post("/messages", response_model=Message, status_code=status.HTTP_201_CREATED)
+async def create_message(message_create: MessageCreate) -> Message:
+    # Генерируем новый ID на основе максимального существующего
+    next_id = max((msg.id for msg in messages_db), default=-1) + 1
+    new_message = Message(id=next_id, content=message_create.content)
+    messages_db.append(new_message)
+    return new_message
+
+
+# PUT /messages/{message_id}: Обновление существующего сообщения
+@app.put("/messages/{message_id}", response_model=Message)
+async def update_message(message_id: int, message_create: MessageCreate) -> Message:
+    for i, message in enumerate(messages_db):
+        if message.id == message_id:
+            updated_message = Message(id=message_id, content=message_create.content)
+            messages_db[i] = updated_message
+            return updated_message
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
+    )
+
+
+@app.delete("/messages/{message_id}", status_code=status.HTTP_200_OK)
+async def delete_message(message_id: int) -> str:
+    if message_id not in messages_db:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
         )
-    return comments_db[comment_id]
+    messages_db.pop(message_id)
+    return f"Message ID={message_id} deleted!"
 
 
-@app.post("/comments", status_code=status.HTTP_201_CREATED)
-async def get_comment(comment: str = Body(...)) -> str:
-    id = max(comments_db) + 1 if comments_db else 0
-    comments_db[id] = comment
-    return "Comment created!"
-
-
-@app.put("/comments/{comment_id}", status_code=status.HTTP_200_OK)
-async def get_comment(comment_id: int, comment: str = Body(...)) -> str:
-    if comment_id not in comments_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
-        )
-    comments_db[comment_id] = comment
-    return "Comment updated!"
-
-
-@app.delete("/comments/{comment_id}", status_code=status.HTTP_200_OK)
-async def get_comment(comment_id: int) -> str:
-    if comment_id not in comments_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
-        )
-    del comments_db[comment_id]
-    return "Comment deleted!"
+@app.delete("/messages", status_code=status.HTTP_200_OK)
+async def delete_messages() -> str:
+    messages_db.clear()
+    return "All messages deleted!"

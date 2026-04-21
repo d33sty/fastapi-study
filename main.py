@@ -1,37 +1,29 @@
-from typing import Annotated
-
-from fastapi import FastAPI, Path, Query
+from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel
 
 app = FastAPI()
 
 
-@app.get("/category/{category_id}/products")
-async def category(
-    category_id: Annotated[int, Path(gt=0, description="Category ID")],
-    page: int,
-) -> dict:
-    return {"category_id": category_id, "page": page}
+# Напишите здесь вашу модель.
+class Note(BaseModel):
+    id: int
+    text: str
 
 
-@app.get("/users/{name}")
-async def get_user(
-    name: Annotated[
-        str, Path(min_length=4, max_length=20, description="Enter your name")
-    ],
-) -> dict:
-    return {"user_name": f"{name}"}
+notes = [
+    Note(id=1, text="Купить хлеб"),
+    Note(id=2, text="Написать отчет"),
+    Note(id=3, text="Позвонить маме"),
+    Note(id=4, text="Сходить в спортзал"),
+    Note(id=5, text="Прочитать книгу"),
+]
 
 
-@app.get("/user")
-async def search(people: Annotated[list[str], Query()]) -> dict:
-    return {"user": people}
+# Напишите здесь ваше решение.
+@app.delete("/notes/{note_id}", status_code=status.HTTP_200_OK, response_model=Note)
+async def delete_note(note_id: int) -> Note:
+    for i, note in enumerate(notes):
+        if note.id == note_id:
+            return notes.pop(i)
 
-
-@app.get("/product")
-async def detail_view(item_id: int) -> dict:
-    return {"product": f"Stock number {item_id}"}
-
-
-@app.get("/users/admin")
-async def admin() -> dict:
-    return {"message": f"Hello admin"}
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
